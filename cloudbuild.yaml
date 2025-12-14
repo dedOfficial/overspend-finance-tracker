@@ -1,11 +1,21 @@
+# Cloud Build configuration for deploying to Cloud Run
+# 
+# Before running, create Artifact Registry repository:
+# gcloud artifacts repositories create docker-repo \
+#   --repository-format=docker \
+#   --location=us-central1 \
+#   --description="Docker repository for overspend-finance-tracker"
+#
+# Or update _REPOSITORY substitution below to use existing repository name
+
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/overspend-finance-tracker:$SHORT_SHA', '.']
+    args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA', '.']
   
-  # Push the container image to Container Registry
+  # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/overspend-finance-tracker:$SHORT_SHA']
+    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA']
   
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -15,9 +25,9 @@ steps:
       - 'deploy'
       - 'overspend-finance-tracker'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/overspend-finance-tracker:$SHORT_SHA'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA'
       - '--region'
-      - 'us-central1'
+      - '${_REGION}'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -25,7 +35,11 @@ steps:
       - '8080'
 
 images:
-  - 'gcr.io/$PROJECT_ID/overspend-finance-tracker:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA'
+
+substitutions:
+  _REGION: 'us-central1'
+  _REPOSITORY: 'docker-repo'
 
 options:
   machineType: 'E2_HIGHCPU_8'
