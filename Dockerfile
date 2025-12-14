@@ -34,8 +34,9 @@ RUN apk add --no-cache gettext
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create nginx configuration template with PORT variable
-RUN echo 'server { \
+# Create nginx templates directory and configuration template with PORT variable
+RUN mkdir -p /etc/nginx/templates && \
+    echo 'server { \
     listen ${PORT} default_server; \
     server_name _; \
     root /usr/share/nginx/html; \
