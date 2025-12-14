@@ -4,15 +4,23 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better layer caching
 COPY package*.json ./
-COPY yarn.lock* ./
+
+# Copy all project files (lock files will be included if they exist)
+# This ensures lock files are available for dependency installation
+# We copy everything except what's in .dockerignore (node_modules, dist, etc.)
+COPY . .
 
 # Install dependencies
-RUN npm ci --legacy-peer-deps || yarn install --frozen-lockfile
-
-# Copy source code
-COPY . .
+# Try npm ci first (if package-lock.json exists), then yarn, then npm install
+RUN if [ -f package-lock.json ]; then \
+      npm ci --legacy-peer-deps; \
+    elif [ -f yarn.lock ]; then \
+      yarn install --frozen-lockfile; \
+    else \
+      npm install --legacy-peer-deps; \
+    fi
 
 # Build the application
 RUN npm run build || yarn build
