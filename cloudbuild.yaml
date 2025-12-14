@@ -11,7 +11,11 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA', '.']
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/overspend-finance-tracker:$SHORT_SHA'
+      - '.'
   
   # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'

@@ -23,6 +23,7 @@ RUN if [ -f package-lock.json ]; then \
     fi
 
 # Build the application
+# Note: Environment variables are injected at runtime, not build time
 RUN npm run build || yarn build
 
 # Stage 2: Production stage
@@ -33,6 +34,10 @@ RUN apk add --no-cache gettext
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Create placeholder for runtime environment configuration script
+# This file will be completely rewritten at container startup
+RUN echo 'window.__ENV__ = window.__ENV__ || {};' > /usr/share/nginx/html/env-config.js
 
 # Create nginx templates directory and configuration template with PORT variable
 RUN mkdir -p /etc/nginx/templates && \
@@ -65,10 +70,20 @@ RUN mkdir -p /etc/nginx/templates && \
     } \
 }' > /etc/nginx/templates/default.conf.template
 
-# Create startup script to substitute PORT variable
+# Create startup script to substitute PORT variable and inject env vars
 RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
     echo 'set -e' >> /docker-entrypoint.sh && \
     echo 'export PORT=${PORT:-8080}' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo '# Inject environment variables into env-config.js (overwrite completely)' >> /docker-entrypoint.sh && \
+    echo 'echo "window.__ENV__ = window.__ENV__ || {};" > /usr/share/nginx/html/env-config.js' >> /docker-entrypoint.sh && \
+    echo 'if [ -n "$VITE_SUPABASE_URL" ]; then' >> /docker-entrypoint.sh && \
+    echo '  echo "window.__ENV__.VITE_SUPABASE_URL = '\''"$VITE_SUPABASE_URL"'\'';" >> /usr/share/nginx/html/env-config.js' >> /docker-entrypoint.sh && \
+    echo 'fi' >> /docker-entrypoint.sh && \
+    echo 'if [ -n "$VITE_SUPABASE_ANON_KEY" ]; then' >> /docker-entrypoint.sh && \
+    echo '  echo "window.__ENV__.VITE_SUPABASE_ANON_KEY = '\''"$VITE_SUPABASE_ANON_KEY"'\'';" >> /usr/share/nginx/html/env-config.js' >> /docker-entrypoint.sh && \
+    echo 'fi' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
     echo 'envsubst '"'"'$PORT'"'"' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf' >> /docker-entrypoint.sh && \
     echo 'exec nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
     chmod +x /docker-entrypoint.sh
